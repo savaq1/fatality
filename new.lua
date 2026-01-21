@@ -1,23 +1,22 @@
 local NEVERLOSE = loadstring(game:HttpGet("https://raw.githubusercontent.com/3345-c-a-t-s-u-s/NEVERLOSE-UI-Nightly/main/source.lua"))()
 
 -- Change Theme --
-NEVERLOSE:Theme("dark") -- [ dark , nightly , original ]
+NEVERLOSE:Theme("dark")
 ------------------
 
-local Window = NEVERLOSE:AddWindow("NEVERLOSE","Cheat Menu v2")
+local Window = NEVERLOSE:AddWindow("NEVERLOSE","Cheat Menu v4")
 local Notification = NEVERLOSE:Notification()
-
 Notification.MaxNotifications = 6
 
 Window:AddTabLabel('Home')
 
--- СОЗДАЁМ ВСЕ ВКЛАДКИ --
+-- ВКЛАДКИ --
 local VisualTab = Window:AddTab('Visual','eye')
 local RageTab = Window:AddTab('Rage','target')
 local MiscTab = Window:AddTab('Misc','settings')
 local SettingsTab = Window:AddTab('Settings','mouse')
 
--- ПЕРЕМЕННЫЕ ДЛЯ ESP --
+-- ESP ПЕРЕМЕННЫЕ --
 local espEnabled = false
 local espBoxes = {}
 local espHealthBars = {}
@@ -25,17 +24,17 @@ local espNames = {}
 local espTracers = {}
 local espTeamCheck = false
 
-local selfColor = Color3.fromRGB(0, 255, 0)  -- Зелёный для себя
-local enemyVisibleColor = Color3.fromRGB(0, 255, 0)  -- Зелёный для видимых врагов
-local enemyHiddenColor = Color3.fromRGB(0, 150, 255)  -- Голубой для невидимых врагов
-local teamColor = Color3.fromRGB(255, 255, 0)  -- Жёлтый для тиммейтов
+local selfColor = Color3.fromRGB(0, 255, 0)
+local enemyVisibleColor = Color3.fromRGB(0, 255, 0)
+local enemyHiddenColor = Color3.fromRGB(0, 150, 255)
+local teamColor = Color3.fromRGB(255, 255, 0)
 
--- ПЕРЕМЕННЫЕ ДЛЯ МАТЕРИАЛОВ --
+-- МАТЕРИАЛЫ --
 local materials = {
     "Plastic", "Wood", "Slate", "Concrete", "CorrodedMetal", "DiamondPlate",
     "Foil", "Grass", "Ice", "Marble", "Granite", "Brick", "Pebble", "Sand",
     "Fabric", "SmoothPlastic", "Metal", "WoodPlanks", "Cobblestone",
-    "Neon", "Glass", "ForceField", "Air", "Water", "Rock", "Snow"
+    "Neon", "Glass", "ForceField"
 }
 
 local selectedMaterial = "Neon"
@@ -43,14 +42,14 @@ local materialColor = Color3.fromRGB(255, 0, 255)
 local materialTransparency = 0.5
 local materialEnabled = false
 
--- ПЕРЕМЕННЫЕ ДЛЯ NOCLIP --
+-- NOCLIP --
 local noclipActive = false
 local noclipConnection = nil
 local noclipTimer = 0
 local noclipRestartTime = 60
 local noclipKey = Enum.KeyCode.N
 
--- ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ВИДИМОСТИ --
+-- ФУНКЦИЯ ПРОВЕРКИ ВИДИМОСТИ --
 local function isPlayerVisible(player)
     if not player.Character then return false end
     
@@ -58,18 +57,15 @@ local function isPlayerVisible(player)
     local localCharacter = localPlayer.Character
     if not localCharacter then return false end
     
-    local localHead = localCharacter:FindFirstChild("Head")
-    local targetHead = player.Character:FindFirstChild("Head")
-    
-    if not localHead or not targetHead then return false end
-    
-    -- Используем Camera вместо Head для лучшей точности
     local camera = workspace.CurrentCamera
     local rayOrigin = camera.CFrame.Position
     
+    local targetHead = player.Character:FindFirstChild("Head")
+    if not targetHead then return false end
+    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {localCharacter, player.Character, camera}
+    raycastParams.FilterDescendantsInstances = {localCharacter, player.Character}
     
     local rayDirection = (targetHead.Position - rayOrigin).Unit
     local distance = (targetHead.Position - rayOrigin).Magnitude
@@ -93,11 +89,10 @@ local function updateESP()
             local head = character:FindFirstChild("Head")
             
             if humanoid and head and humanoid.Health > 0 then
-                -- Проверяем, находится ли игрок на экране
-                local headPosition, onScreen = camera:WorldToViewportPoint(head.Position)
+                local headPos, onScreen = camera:WorldToViewportPoint(head.Position)
                 
                 if onScreen then
-                    -- Определяем цвет
+                    -- Цвет
                     local espColor
                     local isVisible = isPlayerVisible(player)
                     
@@ -106,143 +101,105 @@ local function updateESP()
                     elseif player == localPlayer then
                         espColor = selfColor
                     else
-                        if isVisible then
-                            espColor = enemyVisibleColor
-                        else
-                            espColor = enemyHiddenColor
-                        end
+                        espColor = isVisible and enemyVisibleColor or enemyHiddenColor
                     end
                     
-                    -- СОЗДАЁМ БОКС (ЧАМСЫ) --
+                    -- БОКС --
                     if not espBoxes[player] then
                         local box = Instance.new("BoxHandleAdornment")
                         box.Name = "ESPBox_" .. player.Name
-                        box.Adornee = character
+                        box.Adornee = head
                         box.AlwaysOnTop = true
-                        box.ZIndex = 10
-                        box.Size = Vector3.new(4, 6, 1)
+                        box.ZIndex = 5
+                        box.Size = Vector3.new(4, 5, 1)
                         box.Transparency = 0.3
                         box.Color3 = espColor
                         box.Parent = workspace
-                        
                         espBoxes[player] = box
                     else
                         espBoxes[player].Color3 = espColor
-                        espBoxes[player].Adornee = character
-                        espBoxes[player].Visible = true
+                        espBoxes[player].Adornee = head
                     end
                     
-                    -- СОЗДАЁМ ИНДИКАТОР HP --
+                    -- HP BAR --
                     if not espHealthBars[player] then
-                        -- Создаём ScreenGui для HP баров
-                        local screenGui = Instance.new("ScreenGui")
-                        screenGui.Name = "ESPHealth_" .. player.Name
-                        screenGui.Parent = game.CoreGui
-                        screenGui.ResetOnSpawn = false
+                        local gui = Instance.new("ScreenGui")
+                        gui.Name = "ESPHealth_" .. player.Name
+                        gui.Parent = game.CoreGui
                         
-                        local healthBar = Instance.new("Frame")
-                        healthBar.Name = "HealthBar"
-                        healthBar.Size = UDim2.new(0, 50, 0, 6)
-                        healthBar.Position = UDim2.new(0, headPosition.X - 25, 0, headPosition.Y - 40)
-                        healthBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                        healthBar.BorderSizePixel = 1
-                        healthBar.BorderColor3 = Color3.fromRGB(0, 0, 0)
-                        healthBar.Parent = screenGui
+                        local bar = Instance.new("Frame")
+                        bar.Name = "HealthBar"
+                        bar.Size = UDim2.new(0, 50, 0, 6)
+                        bar.Position = UDim2.new(0, headPos.X - 25, 0, headPos.Y - 40)
+                        bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                        bar.BorderSizePixel = 1
+                        bar.BorderColor3 = Color3.fromRGB(0, 0, 0)
+                        bar.Parent = gui
                         
-                        local healthFill = Instance.new("Frame")
-                        healthFill.Name = "HealthFill"
-                        healthFill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)
-                        healthFill.Position = UDim2.new(0, 0, 0, 0)
-                        healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                        healthFill.BorderSizePixel = 0
-                        healthFill.Parent = healthBar
+                        local fill = Instance.new("Frame")
+                        fill.Name = "HealthFill"
+                        fill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)
+                        fill.Position = UDim2.new(0, 0, 0, 0)
+                        fill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                        fill.BorderSizePixel = 0
+                        fill.Parent = bar
                         
-                        espHealthBars[player] = {ScreenGui = screenGui, Bar = healthBar, Fill = healthFill}
+                        espHealthBars[player] = {Gui = gui, Bar = bar, Fill = fill}
                     else
-                        local healthData = espHealthBars[player]
-                        local headPositionUpdate = camera:WorldToViewportPoint(head.Position)
+                        local data = espHealthBars[player]
+                        local headPosUpdate = camera:WorldToViewportPoint(head.Position)
                         
-                        if healthData.Bar then
-                            healthData.Bar.Position = UDim2.new(0, headPositionUpdate.X - 25, 0, headPositionUpdate.Y - 40)
+                        if data.Bar then
+                            data.Bar.Position = UDim2.new(0, headPosUpdate.X - 25, 0, headPosUpdate.Y - 40)
                             
-                            if healthData.Fill then
-                                local healthPercent = humanoid.Health / humanoid.MaxHealth
-                                healthData.Fill.Size = UDim2.new(healthPercent, 0, 1, 0)
+                            if data.Fill then
+                                local hpPercent = humanoid.Health / humanoid.MaxHealth
+                                data.Fill.Size = UDim2.new(hpPercent, 0, 1, 0)
                                 
-                                -- Меняем цвет в зависимости от HP
-                                if healthPercent > 0.6 then
-                                    healthData.Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                                elseif healthPercent > 0.3 then
-                                    healthData.Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+                                if hpPercent > 0.6 then
+                                    data.Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                                elseif hpPercent > 0.3 then
+                                    data.Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
                                 else
-                                    healthData.Fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                                    data.Fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
                                 end
                             end
                         end
                     end
                     
-                    -- СОЗДАЁМ ИМЯ ИГРОКА --
+                    -- ИМЯ --
                     if not espNames[player] then
-                        local screenGui = Instance.new("ScreenGui")
-                        screenGui.Name = "ESPName_" .. player.Name
-                        screenGui.Parent = game.CoreGui
-                        screenGui.ResetOnSpawn = false
+                        local gui = Instance.new("ScreenGui")
+                        gui.Name = "ESPName_" .. player.Name
+                        gui.Parent = game.CoreGui
                         
-                        local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Name = "PlayerName"
-                        nameLabel.Text = player.Name
-                        nameLabel.Size = UDim2.new(0, 100, 0, 20)
-                        nameLabel.Position = UDim2.new(0, headPosition.X - 50, 0, headPosition.Y - 60)
-                        nameLabel.TextColor3 = espColor
-                        nameLabel.BackgroundTransparency = 1
-                        nameLabel.TextSize = 14
-                        nameLabel.Font = Enum.Font.SourceSansBold
-                        nameLabel.TextStrokeTransparency = 0
-                        nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                        nameLabel.Parent = screenGui
+                        local label = Instance.new("TextLabel")
+                        label.Name = "PlayerName"
+                        label.Text = player.Name
+                        label.Size = UDim2.new(0, 100, 0, 20)
+                        label.Position = UDim2.new(0, headPos.X - 50, 0, headPos.Y - 55)
+                        label.TextColor3 = espColor
+                        label.BackgroundTransparency = 1
+                        label.TextSize = 14
+                        label.Font = Enum.Font.SourceSansBold
+                        label.TextStrokeTransparency = 0
+                        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        label.Parent = gui
                         
-                        espNames[player] = {ScreenGui = screenGui, Label = nameLabel}
+                        espNames[player] = {Gui = gui, Label = label}
                     else
-                        local nameData = espNames[player]
-                        local headPositionUpdate = camera:WorldToViewportPoint(head.Position)
+                        local data = espNames[player]
+                        local headPosUpdate = camera:WorldToViewportPoint(head.Position)
                         
-                        if nameData.Label then
-                            nameData.Label.Position = UDim2.new(0, headPositionUpdate.X - 50, 0, headPositionUpdate.Y - 60)
-                            nameData.Label.TextColor3 = espColor
-                        end
-                    end
-                    
-                    -- СОЗДАЁМ ТРЕЙСЕРЫ (ЛИНИИ К ИГРОКАМ) --
-                    if not espTracers[player] then
-                        local screenGui = Instance.new("ScreenGui")
-                        screenGui.Name = "ESPTracer_" .. player.Name
-                        screenGui.Parent = game.CoreGui
-                        screenGui.ResetOnSpawn = false
-                        
-                        local tracer = Instance.new("Frame")
-                        tracer.Name = "Tracer"
-                        tracer.BackgroundColor3 = espColor
-                        tracer.BorderSizePixel = 0
-                        tracer.Parent = screenGui
-                        
-                        espTracers[player] = {ScreenGui = screenGui, Line = tracer}
-                    else
-                        local tracerData = espTracers[player]
-                        local headPositionUpdate = camera:WorldToViewportPoint(head.Position)
-                        
-                        if tracerData.Line then
-                            local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
-                            
-                            tracerData.Line.Size = UDim2.new(0, 2, 0, (Vector2.new(headPositionUpdate.X, headPositionUpdate.Y) - screenCenter).Magnitude)
-                            tracerData.Line.Position = UDim2.new(0, screenCenter.X - 1, 0, screenCenter.Y)
-                            tracerData.Line.Rotation = math.deg(math.atan2(headPositionUpdate.Y - screenCenter.Y, headPositionUpdate.X - screenCenter.X)) + 90
-                            tracerData.Line.BackgroundColor3 = espColor
+                        if data.Label then
+                            data.Label.Position = UDim2.new(0, headPosUpdate.X - 50, 0, headPosUpdate.Y - 55)
+                            data.Label.TextColor3 = espColor
                         end
                     end
                 else
-                    -- Если игрок не на экране, скрываем ESP
+                    -- Скрываем если не на экране
                     if espBoxes[player] then
-                        espBoxes[player].Visible = false
+                        espBoxes[player].Adornee = nil
                     end
                     if espHealthBars[player] then
                         espHealthBars[player].Bar.Visible = false
@@ -250,51 +207,37 @@ local function updateESP()
                     if espNames[player] then
                         espNames[player].Label.Visible = false
                     end
-                    if espTracers[player] then
-                        espTracers[player].Line.Visible = false
-                    end
                 end
             end
         end
     end
 end
 
--- ФУНКЦИЯ ОЧИСТКИ ESP --
+-- ОЧИСТКА ESP --
 local function clearESP()
-    for player, box in pairs(espBoxes) do
+    for _, box in pairs(espBoxes) do
         box:Destroy()
     end
     espBoxes = {}
     
-    for player, healthData in pairs(espHealthBars) do
-        if healthData.ScreenGui then
-            healthData.ScreenGui:Destroy()
-        end
+    for _, data in pairs(espHealthBars) do
+        data.Gui:Destroy()
     end
     espHealthBars = {}
     
-    for player, nameData in pairs(espNames) do
-        if nameData.ScreenGui then
-            nameData.ScreenGui:Destroy()
-        end
+    for _, data in pairs(espNames) do
+        data.Gui:Destroy()
     end
     espNames = {}
-    
-    for player, tracerData in pairs(espTracers) do
-        if tracerData.ScreenGui then
-            tracerData.ScreenGui:Destroy()
-        end
-    end
-    espTracers = {}
 end
 
--- ФУНКЦИЯ ПРИМЕНЕНИЯ МАТЕРИАЛОВ --
+-- МАТЕРИАЛЫ --
 local function applyMaterials()
     if not materialEnabled then return end
     
     local localPlayer = game.Players.LocalPlayer
     
-    -- Применяем к себе
+    -- К себе
     if localPlayer.Character then
         for _, part in pairs(localPlayer.Character:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -305,7 +248,7 @@ local function applyMaterials()
         end
     end
     
-    -- Применяем к другим игрокам
+    -- К другим
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
             for _, part in pairs(player.Character:GetDescendants()) do
@@ -319,7 +262,7 @@ local function applyMaterials()
     end
 end
 
--- ФУНКЦИИ NOCLIP --
+-- NOCLIP ФУНКЦИИ --
 local function enableNoclip()
     local player = game.Players.LocalPlayer
     local character = player.Character
@@ -336,7 +279,7 @@ local function enableNoclip()
             end
         end)
         
-        Notification:Notify("success","Noclip","Активирован (перезапуск каждые " .. noclipRestartTime .. " сек)")
+        Notification:Notify("success","Noclip","Активирован")
     end
 end
 
@@ -360,7 +303,18 @@ local function disableNoclip()
     Notification:Notify("info","Noclip","Деактивирован")
 end
 
--- ТАЙМЕР ПЕРЕЗАПУСКА NOCLIP --
+-- ГОРЯЧАЯ КЛАВИША NOCLIP --
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == noclipKey then
+        if noclipActive then
+            disableNoclip()
+        else
+            enableNoclip()
+        end
+    end
+end)
+
+-- ТАЙМЕР ПЕРЕЗАПУСКА --
 game:GetService("RunService").Heartbeat:Connect(function(delta)
     if noclipActive then
         noclipTimer = noclipTimer + delta
@@ -368,17 +322,6 @@ game:GetService("RunService").Heartbeat:Connect(function(delta)
             noclipTimer = 0
             disableNoclip()
             task.wait(0.1)
-            enableNoclip()
-        end
-    end
-end)
-
--- ГОРЯЧИЕ КЛАВИШИ ДЛЯ NOCLIP --
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == noclipKey then
-        if noclipActive then
-            disableNoclip()
-        else
             enableNoclip()
         end
     end
@@ -393,12 +336,12 @@ screenGui.ResetOnSpawn = false
 local buttons = {}
 local buttonKeys = {"G", "H", "J", "K", "L"}
 
-local function createScreenButton(key, position)
+for i, key in ipairs(buttonKeys) do
     local button = Instance.new("TextButton")
     button.Name = key
     button.Text = key
     button.Size = UDim2.new(0, 45, 0, 45)
-    button.Position = position
+    button.Position = UDim2.new(0, 10, 0, 100 + (i-1) * 55)
     button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Font = Enum.Font.SourceSansBold
@@ -408,33 +351,13 @@ local function createScreenButton(key, position)
     button.Parent = screenGui
     
     button.MouseButton1Click:Connect(function()
-        -- Визуальная обратная связь
-        local originalColor = button.BackgroundColor3
         button.BackgroundColor3 = Color3.fromRGB(60, 140, 220)
-        
-        -- Эмуляция действия
-        if key == "G" then
-            Notification:Notify("info","Кнопка G", "Активирована функция 1")
-        elseif key == "H" then
-            Notification:Notify("info","Кнопка H", "Активирована функция 2")
-        elseif key == "J" then
-            Notification:Notify("info","Кнопка J", "Активирована функция 3")
-        elseif key == "K" then
-            Notification:Notify("info","Кнопка K", "Активирована функция 4")
-        elseif key == "L" then
-            Notification:Notify("info","Кнопка L", "Активирована функция 5")
-        end
-        
         task.wait(0.2)
-        button.BackgroundColor3 = originalColor
+        button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        Notification:Notify("info","Кнопка " .. key, "Нажата")
     end)
     
     table.insert(buttons, button)
-end
-
--- Создаём кнопки в столбик
-for i, key in ipairs(buttonKeys) do
-    createScreenButton(key, UDim2.new(0, 10, 0, 100 + (i-1) * 55))
 end
 
 -- ВКЛАДКА VISUAL --
@@ -447,36 +370,6 @@ VisualESPSection:AddToggle('Включить ESP', false, function(val)
     else
         clearESP()
         Notification:Notify("info","ESP","Деактивирован")
-    end
-end)
-
-VisualESPSection:AddToggle('Показывать Box', true, function(val)
-    for _, box in pairs(espBoxes) do
-        box.Visible = val
-    end
-end)
-
-VisualESPSection:AddToggle('Показывать HP Bar', true, function(val)
-    for _, healthData in pairs(espHealthBars) do
-        if healthData.Bar then
-            healthData.Bar.Visible = val
-        end
-    end
-end)
-
-VisualESPSection:AddToggle('Показывать имена', true, function(val)
-    for _, nameData in pairs(espNames) do
-        if nameData.Label then
-            nameData.Label.Visible = val
-        end
-    end
-end)
-
-VisualESPSection:AddToggle('Показывать трейсеры', false, function(val)
-    for _, tracerData in pairs(espTracers) do
-        if tracerData.Line then
-            tracerData.Line.Visible = val
-        end
     end
 end)
 
@@ -498,10 +391,6 @@ VisualColorsSection:AddColorPicker('Скрытые враги', enemyHiddenColor
     enemyHiddenColor = val
 end)
 
-VisualColorsSection:AddColorPicker('Тиммейты', teamColor, function(val)
-    teamColor = val
-end)
-
 VisualColorsSection:AddSlider('Прозрачность боксов', 0, 100, 30, function(val)
     for _, box in pairs(espBoxes) do
         box.Transparency = val/100
@@ -521,14 +410,14 @@ VisualMaterialsSection:AddToggle('Включить материалы', false, f
     end
 end)
 
-VisualMaterialsSection:AddDropdown('Выбрать материал', materials, 20, function(val)  -- 20 = Neon
+VisualMaterialsSection:AddDropdown('Материал', materials, 20, function(val)
     selectedMaterial = val
     if materialEnabled then
         applyMaterials()
     end
 end)
 
-VisualMaterialsSection:AddColorPicker('Цвет материалов', materialColor, function(val)
+VisualMaterialsSection:AddColorPicker('Цвет', materialColor, function(val)
     materialColor = val
     if materialEnabled then
         applyMaterials()
@@ -542,32 +431,19 @@ VisualMaterialsSection:AddSlider('Прозрачность', 0, 100, 50, functio
     end
 end)
 
-VisualMaterialsSection:AddButton('Применить материалы', function()
-    applyMaterials()
-    Notification:Notify("info","Материалы","Применены")
-end)
-
 -- ВКЛАДКА RAGE --
-local RageMainSection = RageTab:AddSection('Rage Functions', "left")
+local RageSection = RageTab:AddSection('Rage Functions', "left")
 
-RageMainSection:AddButton('Тестовая функция 1', function()
-    Notification:Notify("info","Rage", "Функция 1 активирована")
+RageSection:AddButton('Активировать', function()
+    Notification:Notify("info","Rage", "Активировано")
 end)
 
-RageMainSection:AddButton('Тестовая функция 2', function()
-    Notification:Notify("info","Rage", "Функция 2 активирована")
+RageSection:AddSlider('Скорость', 1, 10, 5, function(val)
+    print("Rage скорость:", val)
 end)
 
-RageMainSection:AddSlider('Параметр 1', 0, 100, 50, function(val)
-    print("Rage параметр 1:", val)
-end)
-
-RageMainSection:AddSlider('Параметр 2', 0, 100, 50, function(val)
-    print("Rage параметр 2:", val)
-end)
-
--- ВКЛАДКА MISC --
-local MiscNoclipSection = MiscTab:AddSection('Noclip', "left")
+-- ВКЛАДКА MISC (ЗДЕСЬ NOCLIP) --
+local MiscNoclipSection = MiscTab:AddSection('Noclip Settings', "left")
 
 MiscNoclipSection:AddToggle('Noclip', false, function(val)
     if val then
@@ -577,7 +453,7 @@ MiscNoclipSection:AddToggle('Noclip', false, function(val)
     end
 end)
 
-MiscNoclipSection:AddSlider('Время перезапуска (сек)', 10, 300, 60, function(val)
+MiscNoclipSection:AddSlider('Перезапуск (сек)', 10, 300, 60, function(val)
     noclipRestartTime = val
 end)
 
@@ -587,96 +463,59 @@ end)
 
 local MiscButtonsSection = MiscTab:AddSection('Экранные кнопки', "right")
 
-MiscButtonsSection:AddToggle('Показывать кнопки', true, function(val)
+MiscButtonsSection:AddToggle('Показать кнопки', true, function(val)
     screenGui.Enabled = val
 end)
 
 MiscButtonsSection:AddButton('Тест кнопок', function()
-    for _, button in pairs(buttons) do
-        local originalColor = button.BackgroundColor3
-        button.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-        task.wait(0.1)
-        button.BackgroundColor3 = originalColor
+    for _, btn in pairs(buttons) do
+        btn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
     end
-end)
-
-MiscButtonsSection:AddButton('Перезапустить ESP', function()
-    clearESP()
-    if espEnabled then
-        Notification:Notify("info","ESP","Перезапущен")
+    task.wait(0.5)
+    for _, btn in pairs(buttons) do
+        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     end
 end)
 
 -- ВКЛАДКА SETTINGS --
-local SettingsMainSection = SettingsTab:AddSection('Основные настройки', "left")
+local SettingsMain = SettingsTab:AddSection('Настройки', "left")
 
-SettingsMainSection:AddButton('Сохранить настройки', function()
-    local settings = {
-        espEnabled = espEnabled,
-        noclipActive = noclipActive,
-        materialEnabled = materialEnabled,
-        espTeamCheck = espTeamCheck,
-        noclipRestartTime = noclipRestartTime
-    }
-    
-    Notification:Notify("success","Настройки","Сохранены")
-end)
-
-SettingsMainSection:AddButton('Загрузить настройки', function()
-    Notification:Notify("info","Настройки","Загружены (симуляция)")
-end)
-
-SettingsMainSection:AddButton('Сбросить всё', function()
+SettingsMain:AddButton('Сбросить всё', function()
     disableNoclip()
     clearESP()
     materialEnabled = false
-    Notification:Notify("warning","Сброс","Все функции отключены")
+    Notification:Notify("warning","Сброс", "Все функции отключены")
 end)
 
-local SettingsInfoSection = SettingsTab:AddSection('Информация', "right")
+SettingsMain:AddLabel("Управление:")
+SettingsMain:AddLabel("Noclip: " .. tostring(noclipKey.Name))
+SettingsMain:AddLabel("Кнопки: G H J K L")
 
-SettingsInfoSection:AddLabel("Управление:")
-SettingsInfoSection:AddLabel("Noclip: " .. tostring(noclipKey.Name))
-SettingsInfoSection:AddLabel("Экранные кнопки: G, H, J, K, L")
-SettingsInfoSection:AddLabel("")
-SettingsInfoSection:AddLabel("ESP работает на Heartbeat")
-SettingsInfoSection:AddLabel("ROJECT mode v2")
-
--- ОСНОВНОЙ ЦИКЛ ДЛЯ ESP --
-local espLoop = game:GetService("RunService").Heartbeat:Connect(function(delta)
+-- ОСНОВНОЙ ЦИКЛ ESP --
+game:GetService("RunService").Heartbeat:Connect(function()
     if espEnabled then
         updateESP()
     end
 end)
 
--- ОБРАБОТКА ВЫХОДА ИГРОКОВ --
+-- ОЧИСТКА ПРИ ВЫХОДЕ --
 game.Players.PlayerRemoving:Connect(function(player)
     if espBoxes[player] then
         espBoxes[player]:Destroy()
         espBoxes[player] = nil
     end
     if espHealthBars[player] then
-        if espHealthBars[player].ScreenGui then
-            espHealthBars[player].ScreenGui:Destroy()
-        end
+        espHealthBars[player].Gui:Destroy()
         espHealthBars[player] = nil
     end
     if espNames[player] then
-        if espNames[player].ScreenGui then
-            espNames[player].ScreenGui:Destroy()
-        end
+        espNames[player].Gui:Destroy()
         espNames[player] = nil
-    end
-    if espTracers[player] then
-        if espTracers[player].ScreenGui then
-            espTracers[player].ScreenGui:Destroy()
-        end
-        espTracers[player] = nil
     end
 end)
 
--- АВТОЗАПУСК ПРИ РЕСПАВНЕ --
-game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
+-- АВТОЗАПУСК --
+game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
     if noclipActive then
         task.wait(1)
         enableNoclip()
@@ -686,22 +525,9 @@ game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character
         task.wait(1)
         applyMaterials()
     end
-    
-    -- Пересоздаём экранные кнопки
-    if not screenGui or not screenGui.Parent then
-        screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "NeverloseButtons"
-        screenGui.Parent = game.CoreGui
-        screenGui.ResetOnSpawn = false
-        
-        buttons = {}
-        for i, key in ipairs(buttonKeys) do
-            createScreenButton(key, UDim2.new(0, 10, 0, 100 + (i-1) * 55))
-        end
-    end
 end)
 
--- УВЕДОМЛЕНИЕ ПРИ ЗАПУСКЕ --
-task.wait(2)
-Notification:Notify("success","NEVERLOSE v2", "Скрипт загружен!")
-Notification:Notify("info","Управление", "Noclip: " .. tostring(noclipKey.Name) .. "\nКнопки: G, H, J, K, L")
+-- ЗАПУСК --
+task.wait(1)
+Notification:Notify("success","NEVERLOSE v4", "Загружен!")
+print("✅ NeverLose UI готов к работе")
